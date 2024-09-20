@@ -72,7 +72,7 @@ bool isRelevantPlatform(const std::string& appId) {
     return !extractApplicationPath(appId).empty();
 }
 
-void writeToFile(std::vector<ActivityData>& activities, const std::string& filePath) {
+void writeToFile(std::vector<ActivityData>& activities, const std::string& filePath, bool onlyNotSigned) {
     auto now = std::chrono::system_clock::now();
     std::time_t now_time = std::chrono::system_clock::to_time_t(now);
     std::time_t four_days_ago = now_time - (4 * 24 * 60 * 60);
@@ -80,7 +80,7 @@ void writeToFile(std::vector<ActivityData>& activities, const std::string& fileP
         return a.startTimeUnix > b.startTimeUnix;
         });
 
-    std::ofstream outFile(filePath);
+    std::ofstream outFile(filePath, std::ios::app);
     if (!outFile.is_open()) {
         std::cerr << "Failed to open output file: " << filePath << std::endl;
         return;
@@ -97,31 +97,42 @@ void writeToFile(std::vector<ActivityData>& activities, const std::string& fileP
             continue;
         }
 
-        std::vector<std::string> matched_rules;
-        bool yara_match = scan_with_yara(convertedPath, matched_rules);
+        std::string digitalSignature = getDigitalSignature(convertedPath);
+        bool isSigned = (digitalSignature == "Signed");
+
+        if (onlyNotSigned && isSigned) {
+            continue;
+        }
+
         outFile << "Application: " << convertedPath << std::endl;
-        outFile << "Digital signature: " << getDigitalSignature(convertedPath) << std::endl;
-        outFile << "Generics: ";
-        if (yara_match) {
-            for (const auto& rule : matched_rules) {
-                outFile << "Flagged [" << rule << "]    ";
+        outFile << "Digital signature: " << digitalSignature << std::endl;
+
+        if (!isSigned) {
+            std::vector<std::string> matched_rules;
+            bool yara_match = scan_with_yara(convertedPath, matched_rules);
+            outFile << "Generics: ";
+            if (yara_match) {
+                for (const auto& rule : matched_rules) {
+                    outFile << "Flagged [" << rule << "]  ";
+                }
             }
+            else {
+                outFile << "none";
+            }
+            outFile << std::endl;
         }
-        else {
-            outFile << "none";
-        }
-        outFile << std::endl;
 
         outFile << "StartTime: " << activity.startTime << std::endl;
         outFile << "EndTime: " << activity.endTime << std::endl;
         outFile << "------------------------" << std::endl;
-
     }
+
     outFile.close();
 }
 
 
-void processDatabase(const fs::path& dbPath, const std::string& outputPath) {
+
+void processDatabase(const fs::path& dbPath, const std::string& outputPath, bool onlyNotSigned) {
     sqlite3* db;
     char* zErrMsg = 0;
     int rc;
@@ -153,7 +164,7 @@ void processDatabase(const fs::path& dbPath, const std::string& outputPath) {
         }
     }
 
-    writeToFile(activities, outputPath);
+    writeToFile(activities, outputPath, onlyNotSigned);
     std::cout << "Activities written to: " << outputPath << std::endl;
 
     sqlite3_close(db);
@@ -169,7 +180,7 @@ std::string getUserName() {
     return userProfilePath.filename().string();
 }
 
-void searchAndProcessDatabases(const std::string& outputPath) {
+void searchAndProcessDatabases(const std::string& outputPath, bool onlyNotSigned) {
     std::string userName = getUserName();
     if (userName.empty()) return;
 
@@ -184,7 +195,7 @@ void searchAndProcessDatabases(const std::string& outputPath) {
         if (entry.is_regular_file() && entry.path().filename() == "ActivitiesCache.db") {
             if (fs::file_size(entry.path()) > MIN_DB_SIZE) {
                 std::cout << "Processing database: " << entry.path() << std::endl;
-                processDatabase(entry.path(), outputPath);
+                processDatabase(entry.path(), outputPath, onlyNotSigned);
             }
             else {
                 std::cout << "Skipping small database: " << entry.path() << std::endl;
@@ -197,16 +208,24 @@ int main(int argc, char* argv[]) {
     auto start = std::chrono::high_resolution_clock::now();
     std::string outputPath = DEFAULT_OUTPUT_PATH;
     bool openInNotepad = true;
-    if (argc > 1) {
-        outputPath = argv[1];
-        openInNotepad = false;
+    bool onlyNotSigned = false;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-n" || arg == "--not-signed") {
+            onlyNotSigned = true;
+        }
+        else {
+            outputPath = arg;
+            openInNotepad = false;
+        }
     }
 
     std::ofstream clearFile(outputPath, std::ios::trunc);
     clearFile.close();
 
     initializeGenericRules();
-    searchAndProcessDatabases(outputPath);
+    searchAndProcessDatabases(outputPath, onlyNotSigned);
 
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
