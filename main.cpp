@@ -148,8 +148,8 @@ void processDatabase(const fs::path& dbPath, const std::string& outputPath) {
             sqlite3_free(zErrMsg);
         }
         else {
-            std::cout << "Query successful. Activities retrieved from " << table << " in " << dbPath << ": " << activities.size() << std::endl;
-            std::cout << "Time taken for " << table << ": " << duration.count() << " milliseconds" << std::endl;
+           // std::cout << "Query successful. Activities retrieved from " << table << " in " << dbPath << ": " << activities.size() << std::endl;
+           // std::cout << "Time taken for " << table << ": " << duration.count() << " milliseconds" << std::endl;
         }
     }
 
