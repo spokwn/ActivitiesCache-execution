@@ -36,6 +36,8 @@ ActivitesCache Execution offers two modes of operation:
 ### 2. CLI Mode
 
 1. Run the program from the command line
-2. Provide one parameter: the path where you want to save the data
-3. Example: `ActivitesCacheExecution.exe C:\users\user\output.txt`
+2. Provide one or two parameters:
+   - The path where you want to save the data.
+   - If you want to only save not digitally signed files, using `-n` or `--not-signed`.
+3. Example: `ActivitesCacheExecution.exe C:\users\user\output.txt -n`
 4. The program will perform all checks but won't automatically open the results file
