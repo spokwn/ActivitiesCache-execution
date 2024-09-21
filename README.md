@@ -17,6 +17,7 @@ Gets the execution of files using the activitiescache.db artifact using sqlite3,
 4. **Generic B2**: Generic protection detection for non-C# files
 5. **Generic B3**: Generic protection detection for non-C# files
 6. **Generic C**: Basic generic protection detection for C# files
+7. **Generic D**: Well done generic protection detection for C# files
 
 Note: All generics should be relatively safe, but don't panic if they trigger. A2 generic may cause occasional "false flags", which are not intended to be fixed to maintain detection of real cheats.
 
